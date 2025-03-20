@@ -12,15 +12,9 @@ const App = () => {
   const [isMonitoring, setIsMonitoring] = useState(true);
   const [reportPeriod, setReportPeriod] = useState("hourly");
   const [reportType, setReportType] = useState("all");
-  const [mounted, setMounted] = useState(false);
 
   const lowDensityThreshold = 10;
   const highDensityThreshold = 30;
-
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
 
   // Add data point to monitoring history
   const addDataPoint = (timestamp, count, status) => {
@@ -144,11 +138,13 @@ const App = () => {
           const videoWidth = video.videoWidth;
           const videoHeight = video.videoHeight;
 
+          // Set canvas dimensions
           canvasRef.current.width = videoWidth;
           canvasRef.current.height = videoHeight;
 
           const context = canvasRef.current.getContext("2d");
 
+          // Perform detection
           model.detect(video).then((predictions) => {
             context.clearRect(0, 0, videoWidth, videoHeight);
             context.drawImage(video, 0, 0, videoWidth, videoHeight);
@@ -158,11 +154,10 @@ const App = () => {
               if (prediction.class === "person") {
                 personCount++;
                 const [x, y, width, height] = prediction.bbox;
-                context.strokeStyle = "#00B4D8";
+                context.strokeStyle = "green";
                 context.lineWidth = 2;
                 context.strokeRect(x, y, width, height);
-                context.fillStyle = "#00B4D8";
-                context.font = "14px Arial";
+                context.fillStyle = "green";
                 context.fillText(
                   prediction.class,
                   x,
@@ -171,6 +166,7 @@ const App = () => {
               }
             });
 
+            // Update density status
             let status = "Low Density";
             if (personCount >= lowDensityThreshold && personCount < highDensityThreshold) {
               status = "Medium Density";
@@ -179,18 +175,17 @@ const App = () => {
             }
             setDensityStatus(status);
 
+            // Add data point every 5 seconds (to prevent overwhelming data)
             const now = new Date();
             if (now.getSeconds() % 5 === 0 && now.getMilliseconds() < 200) {
               addDataPoint(now.toISOString(), personCount, status);
             }
 
-            // Modern overlay styling
-            context.font = "bold 16px Arial";
-            context.fillStyle = "rgba(0, 0, 0, 0.7)";
-            context.fillRect(10, 10, 200, 60);
-            context.fillStyle = "#E2E8F0";
-            context.fillText(`Count: ${personCount}`, 20, 35);
-            context.fillText(`Status: ${status}`, 20, 60);
+            // Overlay text
+            context.font = "16px Arial";
+            context.fillStyle = "white";
+            context.fillText(`Count: ${personCount}`, 10, 20);
+            context.fillText(`Status: ${status}`, 10, 40);
           });
         };
 
@@ -210,166 +205,114 @@ const App = () => {
     facingMode: "user"
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "High Density - ALERT!":
-        return "text-rose-500";
-      case "Medium Density":
-        return "text-amber-500";
-      default:
-        return "text-emerald-500";
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gray-900 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-        <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-5"></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-blue-500/10 to-purple-500/10 animate-pulse"></div>
-      </div>
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Crowd Monitoring System</h1>
 
-      <div className="relative max-w-7xl mx-auto px-4 py-12">
-        <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          {/* Header */}
-          <div className="text-center">
-            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient mb-4">
-              Stampede Monitoring System
-            </h1>
-            <p className="text-gray-400 text-lg">
-              Real-time crowd density analysis powered by AI
-            </p>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="md:w-2/3">
+          <div
+            style={{
+              position: "relative",
+              width: "640px",
+              height: "480px",
+              margin: "0 auto",
+              border: "1px solid #ccc"
+            }}
+          >
+            <Webcam
+              ref={webcamRef}
+              audio={false}
+              width={640}
+              height={480}
+              videoConstraints={videoConstraints}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "100%",
+                height: "100%",
+              }}
+            />
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: "absolute",
+                left: 0,
+                top: 0,
+                width: "100%",
+                height: "100%",
+              }}
+            />
           </div>
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Video Feed */}
-            <div className="lg:col-span-2">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-purple-500/10 rounded-2xl backdrop-blur-xl transform rotate-2 scale-105"></div>
-                <div className="relative bg-gray-800/50 p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50 shadow-xl">
-                  <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-700/50">
-                    <Webcam
-                      ref={webcamRef}
-                      audio={false}
-                      width={640}
-                      height={480}
-                      videoConstraints={videoConstraints}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      className="absolute inset-0 w-full h-full"
-                    />
-                  </div>
+          <div className="flex justify-between items-center mt-2">
+            <h2 className="text-xl">Status: <span className={
+              densityStatus.includes("High") ? "text-red-600 font-bold" :
+                densityStatus.includes("Medium") ? "text-yellow-600 font-bold" :
+                  "text-green-600 font-bold"
+            }>{densityStatus}</span></h2>
 
-                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className={`text-center sm:text-left ${getStatusColor(densityStatus)}`}>
-                      <h2 className="text-2xl font-bold mb-2">Current Status</h2>
-                      <p className="text-lg">{densityStatus}</p>
-                    </div>
-                    <button
-                      onClick={() => setIsMonitoring(prev => !prev)}
-                      className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 ${isMonitoring
-                          ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                          : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                        }`}
-                    >
-                      {isMonitoring ? 'Pause Monitoring' : 'Resume Monitoring'}
-                    </button>
-                  </div>
+            <button
+              onClick={() => setIsMonitoring(prev => !prev)}
+              className={`px-4 py-2 rounded ${isMonitoring ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'} text-white`}
+            >
+              {isMonitoring ? 'Pause Monitoring' : 'Resume Monitoring'}
+            </button>
+          </div>
 
-                  {!isModelLoaded && (
-                    <div className="mt-4 flex items-center justify-center space-x-2 text-blue-400">
-                      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      <span>Loading AI model...</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+          {!isModelLoaded && <p className="text-center mt-2">Loading model, please wait...</p>}
+        </div>
 
-            {/* Report Generator */}
-            <div className="lg:col-span-1">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-purple-500/10 rounded-2xl backdrop-blur-xl transform rotate-2 scale-105"></div>
-                <div className="relative bg-gray-800/50 p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50 shadow-xl">
-                  <h2 className="text-2xl font-bold text-white mb-6">Report Generator</h2>
+        <div className="md:w-1/3 bg-gray-100 p-4 rounded">
+          <h2 className="text-xl font-bold mb-2">Report Generator</h2>
 
-                  <div className="space-y-6">
-                    <div>
-                      <label className="block text-gray-300 mb-2">Time Period</label>
-                      <select
-                        value={reportPeriod}
-                        onChange={(e) => setReportPeriod(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                      >
-                        <option value="hourly">Last Hour</option>
-                        <option value="daily">Last 24 Hours</option>
-                        <option value="weekly">Last Week</option>
-                        <option value="all">All Data</option>
-                      </select>
-                    </div>
+          <div className="mb-4">
+            <label className="block mb-1">Time Period:</label>
+            <select
+              value={reportPeriod}
+              onChange={(e) => setReportPeriod(e.target.value)}
+              className="w-full p-2 border rounded"
+            >
+              <option value="hourly">Last Hour</option>
+              <option value="daily">Last 24 Hours</option>
+              <option value="weekly">Last Week</option>
+              <option value="all">All Data</option>
+            </select>
+          </div>
 
-                    <div>
-                      <label className="block text-gray-300 mb-2">Density Type</label>
-                      <select
-                        value={reportType}
-                        onChange={(e) => setReportType(e.target.value)}
-                        className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                      >
-                        <option value="all">All Densities</option>
-                        <option value="low">Low Density Only</option>
-                        <option value="medium">Medium Density Only</option>
-                        <option value="high">High Density Only</option>
-                      </select>
-                    </div>
+          <div className="mb-4">
+            <label className="block mb-1">Density Type:</label>
+            <select
+              value={reportType}
+              onChange={(e) => setReportType(e.target.value)}
+              className="w-full p-2 border rounded"
+            >
+              <option value="all">All Densities</option>
+              <option value="low">Low Density Only</option>
+              <option value="medium">Medium Density Only</option>
+              <option value="high">High Density Only</option>
+            </select>
+          </div>
 
-                    <button
-                      onClick={downloadReport}
-                      disabled={monitoringData.length === 0}
-                      className="w-full py-4 px-6 rounded-lg bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 text-white font-medium text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl disabled:opacity-50 disabled:hover:scale-100 disabled:cursor-not-allowed"
-                    >
-                      Generate & Download Report
-                    </button>
+          <button
+            onClick={downloadReport}
+            disabled={monitoringData.length === 0}
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded disabled:bg-gray-400"
+          >
+            Generate & Download Report
+          </button>
 
-                    <div className="p-4 rounded-lg bg-gray-800/30 border border-gray-700/50">
-                      <h3 className="text-lg font-semibold text-white mb-2">Data Collection Status</h3>
-                      <p className="text-gray-400">
-                        Data Points: <span className="text-blue-400 font-medium">{monitoringData.length}</span>
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Sampling every 5 seconds during active monitoring
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <div className="mt-4">
+            <h3 className="font-semibold">Data Points Collected: {monitoringData.length}</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Data is sampled every 5 seconds during active monitoring.
+            </p>
           </div>
         </div>
       </div>
     </div>
   );
 };
-
-// Add these styles to your CSS/Tailwind config
-const style = document.createElement('style');
-style.textContent = `
-  @keyframes gradient {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient 8s ease infinite;
-  }
-`;
-document.head.appendChild(style);
 
 export default App;

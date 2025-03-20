@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
+import video from '../assets/173103-848555583_medium.mp4'
 
 const LandingPage = () => {
   const [mounted, setMounted] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -64,10 +66,35 @@ const LandingPage = () => {
     }
   ];
 
+  const handleVideoLoaded = () => {
+    setVideoLoaded(true);
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 overflow-hidden">
+      {/* Background Video */}
+      <div className="fixed inset-0 z-0">
+        {!videoLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
+            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className={`object-cover w-full h-full ${videoLoaded ? 'opacity-90' : 'opacity-0'} transition-opacity duration-1000`}
+          onLoadedData={handleVideoLoaded}
+        >
+          <source src={video} type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+        <div className="absolute inset-0 bg-gradient-to-b from-gray-900/70 via-gray-900/60 to-gray-900/90"></div>
+      </div>
+
       {/* Animated Background Shapes */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="fixed inset-0 overflow-hidden pointer-events-none z-10">
         {shapes.map((shape, index) => (
           <div
             key={index}
@@ -86,18 +113,13 @@ const LandingPage = () => {
       </div>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center px-4">
-        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-          <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-10"></div>
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-blue-500/20 to-purple-500/20 animate-pulse"></div>
-        </div>
-
+      <section className="relative min-h-screen flex items-center justify-center px-4 z-20">
         <div className="max-w-7xl mx-auto text-center relative">
           <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient">
               EagleEye Surveillance
             </h1>
-            <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto leading-relaxed">
               Transform your security infrastructure with AI-powered video analytics and real-time monitoring
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
@@ -109,9 +131,15 @@ const LandingPage = () => {
               </Link>
               <Link
                 to="/demo"
-                className="px-8 py-4 rounded-lg border border-gray-700 text-white font-medium text-lg transition-all duration-300 hover:bg-gray-800/50 w-full sm:w-auto"
+                className="px-8 py-4 rounded-lg border border-gray-700 bg-gray-800/50 backdrop-blur-sm text-white font-medium text-lg transition-all duration-300 hover:bg-gray-800/80 w-full sm:w-auto group"
               >
-                Watch Demo
+                <span className="flex items-center justify-center">
+                  <svg className="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                  Watch Demo
+                </span>
               </Link>
             </div>
           </div>
@@ -119,11 +147,11 @@ const LandingPage = () => {
       </section>
 
       {/* Features Section */}
-      <section className="relative py-20 px-4">
+      <section className="relative py-20 px-4 z-20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-white mb-4">Powerful Features</h2>
-            <p className="text-gray-400 text-lg">Advanced surveillance capabilities powered by cutting-edge AI</p>
+            <p className="text-gray-300 text-lg">Advanced surveillance capabilities powered by cutting-edge AI</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -144,7 +172,7 @@ const LandingPage = () => {
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
-                <p className="text-gray-400">{feature.description}</p>
+                <p className="text-gray-300">{feature.description}</p>
               </div>
             ))}
           </div>
@@ -152,11 +180,11 @@ const LandingPage = () => {
       </section>
 
       {/* CTA Section */}
-      <section className="relative py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+      <section className="relative py-20 px-4 z-20">
+        <div className="max-w-4xl mx-auto backdrop-blur-sm bg-gray-900/30 p-8 rounded-2xl border border-gray-800/50">
+          <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'} text-center`}>
             <h2 className="text-4xl font-bold text-white mb-4">Ready to Transform Your Security?</h2>
-            <p className="text-gray-400 text-lg mb-8">
+            <p className="text-gray-300 text-lg mb-8">
               Join thousands of businesses that trust EagleEye for their surveillance needs
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -168,7 +196,7 @@ const LandingPage = () => {
               </Link>
               <Link
                 to="/contact"
-                className="px-8 py-4 rounded-lg border border-gray-700 text-white font-medium text-lg transition-all duration-300 hover:bg-gray-800/50 w-full sm:w-auto"
+                className="px-8 py-4 rounded-lg border border-gray-700 bg-gray-800/50 text-white font-medium text-lg transition-all duration-300 hover:bg-gray-800/80 w-full sm:w-auto"
               >
                 Contact Sales
               </Link>
