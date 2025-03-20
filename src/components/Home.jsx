@@ -1,140 +1,214 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 
-const Home = () => {
+const LandingPage = () => {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // Animated background shapes
+  const shapes = [
+    { size: 60, delay: 0, duration: 20 },
+    { size: 120, delay: 5, duration: 25 },
+    { size: 80, delay: 10, duration: 22 },
+    { size: 100, delay: 15, duration: 28 },
+    { size: 90, delay: 8, duration: 24 },
+    { size: 70, delay: 12, duration: 26 },
+  ];
+
   const features = [
     {
-      title: "Real-time Analysis",
-      description: "Instant detection and analysis of security events using advanced AI algorithms",
+      title: "Real-time Analytics",
+      description: "Advanced AI-powered analytics for instant insights and monitoring",
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
       )
     },
     {
-      title: "AI-Powered Detection",
-      description: "Advanced machine learning models for accurate threat detection and object recognition",
+      title: "Smart Detection",
+      description: "Intelligent object and behavior detection with high accuracy",
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-        </svg>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+      )
+    },
+    {
+      title: "Enterprise Security",
+      description: "Military-grade encryption and secure access controls",
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
       )
     },
     {
       title: "24/7 Monitoring",
-      description: "Continuous surveillance with automated alerts for suspicious activities",
+      description: "Round-the-clock surveillance with instant alerts",
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       )
     },
     {
-      title: "Smart Analytics",
-      description: "Comprehensive reporting and analytics dashboard for security insights",
+      title: "Custom Reports",
+      description: "Detailed analytics and customizable reporting dashboards",
       icon: (
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      )
+    },
+    {
+      title: "Cloud Storage",
+      description: "Secure cloud storage with instant access to footage",
+      icon: (
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
       )
     }
   ];
 
   return (
-    <div className="min-h-screen bg-[#1A1F2E] text-white">
+    <div className="min-h-screen bg-gray-900 overflow-hidden">
+      {/* Animated Background Shapes */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        {shapes.map((shape, index) => (
+          <div
+            key={index}
+            className="absolute rounded-full mix-blend-screen animate-float opacity-20"
+            style={{
+              width: shape.size + 'px',
+              height: shape.size + 'px',
+              background: `radial-gradient(circle at center, ${index % 2 ? '#4F46E5' : '#06B6D4'}, transparent)`,
+              top: Math.random() * 100 + '%',
+              left: Math.random() * 100 + '%',
+              animationDelay: shape.delay + 's',
+              animationDuration: shape.duration + 's',
+            }}
+          />
+        ))}
+      </div>
+
       {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-5"></div>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#00B4D8]/10 to-transparent"></div>
+      <section className="relative min-h-screen flex items-center justify-center px-4">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+          <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-10"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-blue-500/20 to-purple-500/20 animate-pulse"></div>
+        </div>
         
-        <div className="container mx-auto px-4 py-20 relative">
-          <div className="max-w-4xl mx-auto text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-[#00B4D8] to-[#023E7A]">
-              Next-Gen Video Surveillance
+        <div className="max-w-7xl mx-auto text-center relative">
+          <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient">
+              EagleEye Surveillance
             </h1>
-            <p className="text-xl text-[#94A3B8] mb-8">
-              Advanced AI-powered video analysis system for enhanced security and real-time threat detection
+            <p className="text-xl md:text-2xl text-gray-400 max-w-3xl mx-auto leading-relaxed">
+              Transform your security infrastructure with AI-powered video analytics and real-time monitoring
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-8">
               <Link
-                to="/login"
-                className="px-8 py-3 bg-gradient-to-r from-[#00B4D8] to-[#023E7A] rounded-lg font-medium hover:opacity-90 transition-opacity"
+                to="/register"
+                className="px-8 py-4 rounded-lg bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 text-white font-medium text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl w-full sm:w-auto"
               >
-                Access System
+                Get Started
+              </Link>
+              <Link
+                to="/demo"
+                className="px-8 py-4 rounded-lg border border-gray-700 text-white font-medium text-lg transition-all duration-300 hover:bg-gray-800/50 w-full sm:w-auto"
+              >
+                Watch Demo
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="relative py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-white mb-4">Powerful Features</h2>
+            <p className="text-gray-400 text-lg">Advanced surveillance capabilities powered by cutting-edge AI</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <div
+                key={feature.title}
+                className={`p-6 rounded-2xl backdrop-blur-sm border border-gray-700/50 bg-gray-800/30 transition-all duration-700 hover:bg-gray-800/50 hover:scale-[1.02] ${
+                  mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+                }`}
+                style={{ transitionDelay: `${index * 100}ms` }}
+              >
+                <div className={`p-3 rounded-lg w-12 h-12 mb-4 flex items-center justify-center ${
+                  index % 3 === 0 ? 'bg-emerald-500/10' :
+                  index % 3 === 1 ? 'bg-blue-500/10' : 'bg-purple-500/10'
+                }`}>
+                  <svg className={`w-6 h-6 ${
+                    index % 3 === 0 ? 'text-emerald-400' :
+                    index % 3 === 1 ? 'text-blue-400' : 'text-purple-400'
+                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    {feature.icon}
+                  </svg>
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
+                <p className="text-gray-400">{feature.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="relative py-20 px-4">
+        <div className="max-w-4xl mx-auto text-center">
+          <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+            <h2 className="text-4xl font-bold text-white mb-4">Ready to Transform Your Security?</h2>
+            <p className="text-gray-400 text-lg mb-8">
+              Join thousands of businesses that trust EagleEye for their surveillance needs
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <Link
+                to="/register"
+                className="px-8 py-4 rounded-lg bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 text-white font-medium text-lg transition-all duration-300 transform hover:scale-[1.02] hover:shadow-xl w-full sm:w-auto"
+              >
+                Start Free Trial
               </Link>
               <Link
                 to="/contact"
-                className="px-8 py-3 border border-[#00B4D8] rounded-lg font-medium hover:bg-[#00B4D8]/10 transition-colors"
+                className="px-8 py-4 rounded-lg border border-gray-700 text-white font-medium text-lg transition-all duration-300 hover:bg-gray-800/50 w-full sm:w-auto"
               >
                 Contact Sales
               </Link>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="container mx-auto px-4 py-20">
-        <h2 className="text-3xl font-bold text-center mb-12">Key Features</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {features.map((feature, index) => (
-            <div
-              key={index}
-              className="p-6 rounded-xl bg-[#2A3142] border border-[#3B4251] hover:border-[#00B4D8] transition-colors"
-            >
-              <div className="w-12 h-12 bg-[#00B4D8]/20 rounded-lg flex items-center justify-center mb-4">
-                {feature.icon}
-              </div>
-              <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-              <p className="text-[#94A3B8]">{feature.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="text-4xl font-bold text-[#00B4D8] mb-2">99.9%</div>
-            <div className="text-[#94A3B8]">Detection Accuracy</div>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-[#00B4D8] mb-2">24/7</div>
-            <div className="text-[#94A3B8]">Continuous Monitoring</div>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl font-bold text-[#00B4D8] mb-2">0.1s</div>
-            <div className="text-[#94A3B8]">Response Time</div>
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="container mx-auto px-4 py-20">
-        <div className="max-w-3xl mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-6">Ready to Enhance Your Security?</h2>
-          <p className="text-[#94A3B8] mb-8">
-            Join leading organizations in implementing next-generation video surveillance
-          </p>
-          <Link
-            to="/register"
-            className="inline-block px-8 py-3 bg-gradient-to-r from-[#00B4D8] to-[#023E7A] rounded-lg font-medium hover:opacity-90 transition-opacity"
-          >
-            Get Started Now
-          </Link>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="border-t border-[#3B4251] py-8">
-        <div className="container mx-auto px-4 text-center text-[#94A3B8]">
-          <p>© 2024 EagleEye. All rights reserved.</p>
-        </div>
-      </footer>
+      </section>
     </div>
   );
 };
 
-export default Home;
+// Add these styles to your CSS/Tailwind config
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes float {
+    0% { transform: translate(0, 0) rotate(0deg); }
+    25% { transform: translate(10px, -10px) rotate(5deg); }
+    50% { transform: translate(0, -20px) rotate(0deg); }
+    75% { transform: translate(-10px, -10px) rotate(-5deg); }
+    100% { transform: translate(0, 0) rotate(0deg); }
+  }
+  
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .animate-float {
+    animation: float 20s infinite ease-in-out;
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 8s ease infinite;
+  }
+`;
+document.head.appendChild(style);
+
+export default LandingPage;
