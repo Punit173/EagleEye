@@ -234,7 +234,7 @@ const App = () => {
           {/* Header */}
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient mb-4">
-              Crowd Monitoring System
+              Stampede Monitoring System
             </h1>
             <p className="text-gray-400 text-lg">
               Real-time crowd density analysis powered by AI
