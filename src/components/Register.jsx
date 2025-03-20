@@ -87,7 +87,7 @@ const Register = () => {
               Join the future of intelligent video surveillance. Transform your security infrastructure with AI-powered analytics and real-time monitoring.
             </p>
           </div>
-          
+
           <div className="space-y-8">
             <div className="flex items-start space-x-4">
               <div className="p-2 bg-emerald-500/10 rounded-lg">
@@ -100,7 +100,7 @@ const Register = () => {
                 <p className="text-gray-400">Advanced encryption and secure access controls</p>
               </div>
             </div>
-            
+
             <div className="flex items-start space-x-4">
               <div className="p-2 bg-blue-500/10 rounded-lg">
                 <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -112,7 +112,7 @@ const Register = () => {
                 <p className="text-gray-400">Comprehensive insights and reporting</p>
               </div>
             </div>
-            
+
             <div className="flex items-start space-x-4">
               <div className="p-2 bg-purple-500/10 rounded-lg">
                 <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

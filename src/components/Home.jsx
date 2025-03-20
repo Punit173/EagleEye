@@ -91,7 +91,7 @@ const LandingPage = () => {
           <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-10"></div>
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-blue-500/20 to-purple-500/20 animate-pulse"></div>
         </div>
-        
+
         <div className="max-w-7xl mx-auto text-center relative">
           <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
             <h1 className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient">
@@ -130,19 +130,16 @@ const LandingPage = () => {
             {features.map((feature, index) => (
               <div
                 key={feature.title}
-                className={`p-6 rounded-2xl backdrop-blur-sm border border-gray-700/50 bg-gray-800/30 transition-all duration-700 hover:bg-gray-800/50 hover:scale-[1.02] ${
-                  mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-                }`}
+                className={`p-6 rounded-2xl backdrop-blur-sm border border-gray-700/50 bg-gray-800/30 transition-all duration-700 hover:bg-gray-800/50 hover:scale-[1.02] ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+                  }`}
                 style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <div className={`p-3 rounded-lg w-12 h-12 mb-4 flex items-center justify-center ${
-                  index % 3 === 0 ? 'bg-emerald-500/10' :
-                  index % 3 === 1 ? 'bg-blue-500/10' : 'bg-purple-500/10'
-                }`}>
-                  <svg className={`w-6 h-6 ${
-                    index % 3 === 0 ? 'text-emerald-400' :
-                    index % 3 === 1 ? 'text-blue-400' : 'text-purple-400'
-                  }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`p-3 rounded-lg w-12 h-12 mb-4 flex items-center justify-center ${index % 3 === 0 ? 'bg-emerald-500/10' :
+                    index % 3 === 1 ? 'bg-blue-500/10' : 'bg-purple-500/10'
+                  }`}>
+                  <svg className={`w-6 h-6 ${index % 3 === 0 ? 'text-emerald-400' :
+                      index % 3 === 1 ? 'text-blue-400' : 'text-purple-400'
+                    }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     {feature.icon}
                   </svg>
                 </div>

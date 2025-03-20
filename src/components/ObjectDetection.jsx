@@ -1,319 +1,223 @@
-import React, { useRef, useState, useEffect } from "react";
-import * as tf from "@tensorflow/tfjs";
-import "@tensorflow/tfjs-backend-webgl";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
-import * as mpPose from "@mediapipe/pose";
-import * as mpFaceMesh from "@mediapipe/face_mesh";
+import React, { useEffect, useRef, useState } from 'react';
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgl';
+import * as cocossd from '@tensorflow-models/coco-ssd';
 
 const ObjectDetection = () => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const [model, setModel] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [stats, setStats] = useState({
-    totalPeople: 0,
-    staffCount: 0,
-    customerCount: 0,
-    suspiciousActions: 0,
-    itemsPicked: 0
-  });
-  const [trackedPeople, setTrackedPeople] = useState(new Map());
-  const [detectedItems, setDetectedItems] = useState(new Set());
+  const [detections, setDetections] = useState([]);
+  const [isTheftDetected, setIsTheftDetected] = useState(false);
+  const [lastPositions, setLastPositions] = useState({});
 
   useEffect(() => {
-    let mounted = true;
-
-    const setupCamera = async () => {
+    const loadModel = async () => {
       try {
-        await tf.setBackend("webgl");
         await tf.ready();
+        const loadedModel = await cocossd.load();
+        setModel(loadedModel);
+        setLoading(false);
+        console.log('Model loaded successfully');
+      } catch (error) {
+        console.error('Failed to load model:', error);
+      }
+    };
+    loadModel();
+    return () => {};
+  }, []);
 
+  useEffect(() => {
+    const setupCamera = async () => {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Browser API navigator.mediaDevices.getUserMedia not available');
+        return;
+      }
+
+      try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: 1280,
-            height: 720
-          },
+          video: { width: 640, height: 480 },
+          audio: false,
         });
 
-        if (videoRef.current && mounted) {
+        if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          await loadModels();
         }
-      } catch (err) {
-        if (mounted) {
-          setError("Failed to access camera. Please check permissions.");
-          setLoading(false);
-        }
-        console.error("Camera access error:", err);
+      } catch (error) {
+        console.error('Error accessing the camera:', error);
       }
     };
 
     setupCamera();
 
     return () => {
-      mounted = false;
-      if (videoRef.current?.srcObject) {
+      if (videoRef.current && videoRef.current.srcObject) {
         const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach(track => track.stop());
+        tracks.forEach((track) => track.stop());
       }
     };
   }, []);
 
-  const loadModels = async () => {
-    try {
-      // Load COCO-SSD for object detection
-      const objectDetectionModel = await cocoSsd.load();
+  useEffect(() => {
+    let animationFrameId;
 
-      // Load MediaPipe Pose for pose detection
-      const pose = new mpPose.Pose({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`,
-      });
-      pose.setOptions({
-        modelComplexity: 1,
-        smoothLandmarks: true,
-        minDetectionConfidence: 0.7,
-        minTrackingConfidence: 0.7,
-      });
+    const detectObjects = async () => {
+      if (model && videoRef.current && videoRef.current.readyState === 4) {
+        const video = videoRef.current;
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
 
-      // Load MediaPipe Face Mesh for face recognition
-      const faceMesh = new mpFaceMesh.FaceMesh({
-        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
-      });
-      faceMesh.setOptions({
-        maxNumFaces: 10,
-        refineLandmarks: true,
-        minDetectionConfidence: 0.5,
-        minTrackingConfidence: 0.5,
-      });
+        if (canvasRef.current) {
+          canvasRef.current.width = videoWidth;
+          canvasRef.current.height = videoHeight;
+        }
 
-      // Start detection loops
-      startDetection(objectDetectionModel, pose, faceMesh);
-      setLoading(false);
-    } catch (err) {
-      console.error("Error loading models:", err);
-      setError("Failed to load AI models. Please refresh the page.");
-      setLoading(false);
-    }
-  };
+        const predictions = await model.detect(video);
+        setDetections(predictions);
+        analyzeForTheft(predictions);
 
-  const startDetection = (objectModel, pose, faceMesh) => {
-    const detect = async () => {
-      if (!videoRef.current) return;
+        if (canvasRef.current) {
+          const ctx = canvasRef.current.getContext('2d');
+          drawPredictions(predictions, ctx);
+        }
+      }
 
-      // Run object detection
-      const objects = await objectModel.detect(videoRef.current);
-
-      // Run pose detection
-      await pose.send({ image: videoRef.current });
-
-      // Run face detection
-      await faceMesh.send({ image: videoRef.current });
-
-      // Process detections
-      processDetections(objects);
-
-      // Draw results
-      drawResults(objects);
-
-      requestAnimationFrame(detect);
+      animationFrameId = requestAnimationFrame(detectObjects);
     };
 
-    detect();
-  };
+    if (!loading) {
+      detectObjects();
+    }
 
-  const processDetections = (objects) => {
-    const currentPeople = new Set();
-    const currentItems = new Set();
-
-    objects.forEach(detection => {
-      if (detection.class === "person") {
-        const personId = generatePersonId(detection.bbox);
-        currentPeople.add(personId);
-
-        if (!trackedPeople.has(personId)) {
-          // New person detected
-          const isStaff = classifyPerson(detection);
-          trackedPeople.set(personId, {
-            type: isStaff ? "staff" : "customer",
-            bbox: detection.bbox,
-            items: new Set()
-          });
-
-          setStats(prev => ({
-            ...prev,
-            totalPeople: prev.totalPeople + 1,
-            [isStaff ? "staffCount" : "customerCount"]: prev[isStaff ? "staffCount" : "customerCount"] + 1
-          }));
-        }
-      } else if (detection.class === "handbag" || detection.class === "backpack" ||
-        detection.class === "bottle" || detection.class === "cup") {
-        currentItems.add(detection.class);
+    return () => {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
       }
-    });
+    };
+  }, [model, loading]);
 
-    // Check for suspicious actions
-    checkSuspiciousActions(currentPeople, currentItems);
-  };
+  const analyzeForTheft = (predictions) => {
+    const personObjects = predictions.filter((pred) => pred.class === 'person');
+    const valuableObjects = predictions.filter((pred) =>
+      ['cell phone', 'laptop', 'backpack', 'handbag', 'suitcase', 'wallet'].includes(pred.class)
+    );
 
-  const classifyPerson = (detection) => {
-    // Simple classification based on clothing color and position
-    // In a real system, you would use more sophisticated methods
-    const [x, y, width, height] = detection.bbox;
-    const centerY = y + height / 2;
+    const newPositions = { ...lastPositions };
 
-    // If person is in staff area (top half of frame)
-    return centerY < canvasRef.current.height * 0.5;
-  };
+    valuableObjects.forEach((obj) => {
+      const objId = `${obj.class}_${obj.bbox[0].toFixed(0)}_${obj.bbox[1].toFixed(0)}`;
 
-  const checkSuspiciousActions = (currentPeople, currentItems) => {
-    trackedPeople.forEach((person, id) => {
-      if (person.type === "customer") {
-        // Check if customer is near items
-        const isNearItems = Array.from(currentItems).some(item =>
-          isNearby(person.bbox, item.bbox)
+      if (newPositions[objId]) {
+        const prevPos = newPositions[objId];
+        const currentPos = { x: obj.bbox[0], y: obj.bbox[1] };
+
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - prevPos.x, 2) +
+            Math.pow(currentPos.y - prevPos.y, 2)
         );
 
-        if (isNearItems) {
-          // Check for pocketing action
-          const isPocketing = detectPocketingAction(person);
-          if (isPocketing) {
-            setStats(prev => ({
-              ...prev,
-              suspiciousActions: prev.suspiciousActions + 1
-            }));
+        if (distance > 30) {
+          const isPersonNearby = personObjects.some((person) => {
+            const personCenter = {
+              x: person.bbox[0] + person.bbox[2] / 2,
+              y: person.bbox[1] + person.bbox[3] / 2,
+            };
+
+            const objCenter = {
+              x: obj.bbox[0] + obj.bbox[2] / 2,
+              y: obj.bbox[1] + obj.bbox[3] / 2,
+            };
+
+            const distanceToPerson = Math.sqrt(
+              Math.pow(personCenter.x - objCenter.x, 2) +
+                Math.pow(personCenter.y - objCenter.y, 2)
+            );
+
+            return distanceToPerson < 150;
+          });
+
+          if (isPersonNearby) {
+            setIsTheftDetected(true);
+            setTimeout(() => setIsTheftDetected(false), 5000);
           }
         }
       }
+
+      newPositions[objId] = { x: obj.bbox[0], y: obj.bbox[1] };
     });
+
+    setLastPositions(newPositions);
   };
 
-  const detectPocketingAction = (person) => {
-    // Implement pocketing detection logic
-    // This would use pose landmarks to detect hand movements
-    return false; // Placeholder
-  };
+  const drawPredictions = (predictions, ctx) => {
+    if (!ctx) return;
 
-  const isNearby = (bbox1, bbox2) => {
-    const [x1, y1, w1, h1] = bbox1;
-    const [x2, y2, w2, h2] = bbox2;
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    ctx.drawImage(videoRef.current, 0, 0, ctx.canvas.width, ctx.canvas.height);
 
-    const center1 = { x: x1 + w1 / 2, y: y1 + h1 / 2 };
-    const center2 = { x: x2 + w2 / 2, y: y2 + h2 / 2 };
+    predictions.forEach((prediction) => {
+      const [x, y, width, height] = prediction.bbox;
+      const text = `${prediction.class} ${Math.round(prediction.score * 100)}%`;
 
-    const distance = Math.sqrt(
-      Math.pow(center1.x - center2.x, 2) +
-      Math.pow(center1.y - center2.y, 2)
-    );
-
-    return distance < 100; // Threshold for "nearby"
-  };
-
-  const generatePersonId = (bbox) => {
-    const [x, y, w, h] = bbox;
-    return `${Math.round(x)},${Math.round(y)}`;
-  };
-
-  const drawResults = (objects) => {
-    if (!canvasRef.current || !videoRef.current) return;
-    const ctx = canvasRef.current.getContext("2d");
-
-    // Set canvas dimensions
-    if (videoRef.current.videoWidth && videoRef.current.videoHeight) {
-      canvasRef.current.width = videoRef.current.videoWidth;
-      canvasRef.current.height = videoRef.current.videoHeight;
-    }
-
-    // Clear and draw video
-    ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
-    ctx.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-
-    // Draw detection boxes and labels
-    objects.forEach(detection => {
-      const [x, y, width, height] = detection.bbox;
-
-      // Draw box
-      ctx.strokeStyle = detection.class === "person" ? "#00ff00" : "#ff0000";
+      ctx.strokeStyle = isTheftDetected ? 'red' : '#00FFFF';
       ctx.lineWidth = 2;
       ctx.strokeRect(x, y, width, height);
 
-      // Draw label
-      ctx.fillStyle = detection.class === "person" ? "#00ff00" : "#ff0000";
-      ctx.font = "16px Arial";
-      ctx.fillText(`${detection.class} (${Math.round(detection.score * 100)}%)`, x, y - 5);
+      ctx.fillStyle = isTheftDetected ? 'red' : '#00FFFF';
+      ctx.fillRect(x, y - 20, text.length * 7, 20);
+
+      ctx.fillStyle = '#000000';
+      ctx.font = '16px Arial';
+      ctx.fillText(text, x, y - 5);
     });
 
-    // Draw statistics
-    ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-    ctx.fillRect(10, 10, 300, 150);
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 16px Arial";
-    ctx.fillText(`Total People: ${stats.totalPeople}`, 20, 40);
-    ctx.fillText(`Staff: ${stats.staffCount}`, 20, 70);
-    ctx.fillText(`Customers: ${stats.customerCount}`, 20, 100);
-    ctx.fillText(`Suspicious Actions: ${stats.suspiciousActions}`, 20, 130);
+    if (isTheftDetected) {
+      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, ctx.canvas.width, 40);
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText('⚠️ POTENTIAL THEFT DETECTED!', 20, 30);
+    }
   };
 
   return (
-    <div className="flex flex-col items-center bg-[#1A1F2E] min-h-screen p-4">
-      <h1 className="text-3xl font-bold text-center text-[#00B4D8] mb-4">
-        Smart Surveillance System
-      </h1>
-
-      {error && (
-        <div className="w-full max-w-4xl mb-4 p-4 bg-red-900/20 border border-red-800 rounded-lg text-red-300">
-          {error}
+    <div className="flex flex-col items-center p-4 bg-gray-100 min-h-screen">
+      <h2 className="text-2xl font-bold text-gray-800 mb-4">Theft Detection System</h2>
+      {loading ? (
+        <div className="text-lg text-blue-600">Loading model...</div>
+      ) : (
+        <div className="relative w-full max-w-3xl">
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="rounded-lg shadow-lg w-full"
+          />
+          <canvas
+            ref={canvasRef}
+            className={`absolute top-0 left-0 w-full rounded-lg border-4 ${
+              isTheftDetected ? 'border-red-500' : 'border-gray-300'
+            }`}
+          />
+          {isTheftDetected && (
+            <div className="absolute top-0 left-0 w-full p-2 bg-red-500 text-white text-center font-semibold">
+              ⚠️ Potential theft detected!
+            </div>
+          )}
+          <div className="mt-4 p-4 bg-white shadow rounded-lg">
+            <h3 className="text-lg font-semibold text-gray-800">Detected Objects:</h3>
+            <ul className="list-disc pl-5">
+              {detections.map((detection, index) => (
+                <li key={index} className="text-gray-700">
+                  {detection.class} - Confidence: {Math.round(detection.score * 100)}%
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
-
-      <div className="relative w-full max-w-4xl">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#00B4D8]"></div>
-          </div>
-        ) : (
-          <div className="relative">
-            <video
-              ref={videoRef}
-              className="hidden"
-              autoPlay
-              playsInline
-              muted
-            ></video>
-            <canvas
-              ref={canvasRef}
-              className="w-full h-auto rounded-lg shadow-lg"
-              style={{ border: "4px solid #00B4D8" }}
-            ></canvas>
-          </div>
-        )}
-      </div>
-
-      <div className="mt-6 w-full max-w-4xl">
-        <div className="bg-[#2A3142] border border-[#3B4251] rounded-lg shadow-lg">
-          <div className="p-4">
-            <h2 className="text-xl font-semibold text-white">Real-time Statistics</h2>
-            <div className="mt-4 grid grid-cols-2 gap-4">
-              <div className="bg-[#1A1F2E] p-4 rounded-lg">
-                <h3 className="text-[#94A3B8] text-sm">Total People</h3>
-                <p className="text-3xl font-bold text-[#00B4D8]">{stats.totalPeople}</p>
-              </div>
-              <div className="bg-[#1A1F2E] p-4 rounded-lg">
-                <h3 className="text-[#94A3B8] text-sm">Staff Members</h3>
-                <p className="text-3xl font-bold text-[#00B4D8]">{stats.staffCount}</p>
-              </div>
-              <div className="bg-[#1A1F2E] p-4 rounded-lg">
-                <h3 className="text-[#94A3B8] text-sm">Customers</h3>
-                <p className="text-3xl font-bold text-[#00B4D8]">{stats.customerCount}</p>
-              </div>
-              <div className="bg-[#1A1F2E] p-4 rounded-lg">
-                <h3 className="text-[#94A3B8] text-sm">Suspicious Actions</h3>
-                <p className="text-3xl font-bold text-[#00B4D8]">{stats.suspiciousActions}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
