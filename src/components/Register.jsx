@@ -60,9 +60,8 @@ const Register = () => {
       }
 
       const { error: insertError } = await supabase
-        .from("users")
+        .from("Users")
         .insert({
-          user_id: user.id,
           name: name,
           email: email,
           company_name: companyName,
