@@ -1,225 +1,192 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as tf from '@tensorflow/tfjs';
-import '@tensorflow/tfjs-backend-webgl';
-import * as cocossd from '@tensorflow-models/coco-ssd';
+import React, { useRef, useEffect, useState } from "react";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
+import "@tensorflow/tfjs";
+import Webcam from "react-webcam";
 
 const ObjectDetection = () => {
-  const videoRef = useRef(null);
+  const webcamRef = useRef(null);
   const canvasRef = useRef(null);
-  const [model, setModel] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [detections, setDetections] = useState([]);
-  const [isTheftDetected, setIsTheftDetected] = useState(false);
-  const [lastPositions, setLastPositions] = useState({});
+  const [densityStatus, setDensityStatus] = useState("Low Density");
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const lowDensityThreshold = 10;
+  const highDensityThreshold = 30;
 
   useEffect(() => {
-    const loadModel = async () => {
-      try {
-        await tf.ready();
-        const loadedModel = await cocossd.load();
-        setModel(loadedModel);
-        setLoading(false);
-        console.log('Model loaded successfully');
-      } catch (error) {
-        console.error('Failed to load model:', error);
-      }
-    };
-    loadModel();
-    return () => {};
+    setMounted(true);
+    return () => setMounted(false);
   }, []);
 
   useEffect(() => {
-    const setupCamera = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        alert('Browser API navigator.mediaDevices.getUserMedia not available');
-        return;
-      }
-
+    const runDetection = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480 },
-          audio: false,
-        });
+        const model = await cocoSsd.load();
+        console.log("Model loaded!");
+        setIsModelLoaded(true);
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error('Error accessing the camera:', error);
-      }
-    };
+        const detectObjects = () => {
+          if (
+            webcamRef.current &&
+            webcamRef.current.video &&
+            webcamRef.current.video.readyState === 4 &&
+            canvasRef.current
+          ) {
+            const video = webcamRef.current.video;
+            const videoWidth = video.videoWidth;
+            const videoHeight = video.videoHeight;
 
-    setupCamera();
+            // Set canvas dimensions
+            canvasRef.current.width = videoWidth;
+            canvasRef.current.height = videoHeight;
 
-    return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const tracks = videoRef.current.srcObject.getTracks();
-        tracks.forEach((track) => track.stop());
-      }
-    };
-  }, []);
+            const context = canvasRef.current.getContext("2d");
 
-  useEffect(() => {
-    let animationFrameId;
+            // Perform detection
+            model.detect(video).then((predictions) => {
+              context.clearRect(0, 0, videoWidth, videoHeight);
+              context.drawImage(video, 0, 0, videoWidth, videoHeight);
 
-    const detectObjects = async () => {
-      if (model && videoRef.current && videoRef.current.readyState === 4) {
-        const video = videoRef.current;
-        const videoWidth = video.videoWidth;
-        const videoHeight = video.videoHeight;
+              let personCount = 0;
+              predictions.forEach((prediction) => {
+                if (prediction.class === "person") {
+                  personCount++;
+                  const [x, y, width, height] = prediction.bbox;
+                  context.strokeStyle = "#00B4D8";
+                  context.lineWidth = 2;
+                  context.strokeRect(x, y, width, height);
+                  context.fillStyle = "#00B4D8";
+                  context.font = "14px Arial";
+                  context.fillText(
+                    prediction.class,
+                    x,
+                    y > 10 ? y - 5 : y + 15
+                  );
+                }
+              });
 
-        if (canvasRef.current) {
-          canvasRef.current.width = videoWidth;
-          canvasRef.current.height = videoHeight;
-        }
+              // Update density status
+              let status = "Low Density";
+              if (personCount >= lowDensityThreshold && personCount < highDensityThreshold) {
+                status = "Medium Density";
+              } else if (personCount >= highDensityThreshold) {
+                status = "High Density - ALERT!";
+              }
+              setDensityStatus(status);
 
-        const predictions = await model.detect(video);
-        setDetections(predictions);
-        analyzeForTheft(predictions);
-
-        if (canvasRef.current) {
-          const ctx = canvasRef.current.getContext('2d');
-          drawPredictions(predictions, ctx);
-        }
-      }
-
-      animationFrameId = requestAnimationFrame(detectObjects);
-    };
-
-    if (!loading) {
-      detectObjects();
-    }
-
-    return () => {
-      if (animationFrameId) {
-        cancelAnimationFrame(animationFrameId);
-      }
-    };
-  }, [model, loading]);
-
-  const analyzeForTheft = (predictions) => {
-    const personObjects = predictions.filter((pred) => pred.class === 'person');
-    const valuableObjects = predictions.filter((pred) =>
-      ['cell phone', 'laptop', 'backpack', 'handbag', 'suitcase', 'wallet'].includes(pred.class)
-    );
-
-    const newPositions = { ...lastPositions };
-
-    valuableObjects.forEach((obj) => {
-      const objId = `${obj.class}_${obj.bbox[0].toFixed(0)}_${obj.bbox[1].toFixed(0)}`;
-
-      if (newPositions[objId]) {
-        const prevPos = newPositions[objId];
-        const currentPos = { x: obj.bbox[0], y: obj.bbox[1] };
-
-        const distance = Math.sqrt(
-          Math.pow(currentPos.x - prevPos.x, 2) +
-            Math.pow(currentPos.y - prevPos.y, 2)
-        );
-
-        if (distance > 30) {
-          const isPersonNearby = personObjects.some((person) => {
-            const personCenter = {
-              x: person.bbox[0] + person.bbox[2] / 2,
-              y: person.bbox[1] + person.bbox[3] / 2,
-            };
-
-            const objCenter = {
-              x: obj.bbox[0] + obj.bbox[2] / 2,
-              y: obj.bbox[1] + obj.bbox[3] / 2,
-            };
-
-            const distanceToPerson = Math.sqrt(
-              Math.pow(personCenter.x - objCenter.x, 2) +
-                Math.pow(personCenter.y - objCenter.y, 2)
-            );
-
-            return distanceToPerson < 150;
-          });
-
-          if (isPersonNearby) {
-            setIsTheftDetected(true);
-            setTimeout(() => setIsTheftDetected(false), 5000);
+              // Overlay text with modern styling
+              context.font = "bold 16px Arial";
+              context.fillStyle = "rgba(0, 0, 0, 0.7)";
+              context.fillRect(10, 10, 200, 60);
+              context.fillStyle = "#E2E8F0";
+              context.fillText(`Count: ${personCount}`, 20, 35);
+              context.fillText(`Status: ${status}`, 20, 60);
+            });
           }
-        }
+        };
+
+        const interval = setInterval(detectObjects, 100);
+        return () => clearInterval(interval);
+      } catch (error) {
+        console.error("Error loading model:", error);
       }
+    };
 
-      newPositions[objId] = { x: obj.bbox[0], y: obj.bbox[1] };
-    });
+    runDetection();
+  }, []);
 
-    setLastPositions(newPositions);
+  const videoConstraints = {
+    width: 640,
+    height: 480,
+    facingMode: "user"
   };
 
-  const drawPredictions = (predictions, ctx) => {
-    if (!ctx) return;
-
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.drawImage(videoRef.current, 0, 0, ctx.canvas.width, ctx.canvas.height);
-
-    predictions.forEach((prediction) => {
-      const [x, y, width, height] = prediction.bbox;
-      const text = `${prediction.class} ${Math.round(prediction.score * 100)}%`;
-
-      ctx.strokeStyle = isTheftDetected ? 'red' : '#00FFFF';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, width, height);
-
-      ctx.fillStyle = isTheftDetected ? 'red' : '#00FFFF';
-      ctx.fillRect(x, y - 20, text.length * 7, 20);
-
-      ctx.fillStyle = '#000000';
-      ctx.font = '16px Arial';
-      ctx.fillText(text, x, y - 5);
-    });
-
-    if (isTheftDetected) {
-      ctx.fillStyle = 'rgba(255, 0, 0, 0.5)';
-      ctx.fillRect(0, 0, ctx.canvas.width, 40);
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 24px Arial';
-      ctx.fillText('⚠️ POTENTIAL THEFT DETECTED!', 20, 30);
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "High Density - ALERT!":
+        return "text-rose-500";
+      case "Medium Density":
+        return "text-amber-500";
+      default:
+        return "text-emerald-500";
     }
   };
 
   return (
-    <div className="flex flex-col items-center p-4 bg-gray-100 min-h-screen">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">Theft Detection System</h2>
-      {loading ? (
-        <div className="text-lg text-blue-600">Loading model...</div>
-      ) : (
-        <div className="relative w-full max-w-3xl">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="rounded-lg shadow-lg w-full"
-          />
-          <canvas
-            ref={canvasRef}
-            className={`absolute top-0 left-0 w-full rounded-lg border-4 ${
-              isTheftDetected ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {isTheftDetected && (
-            <div className="absolute top-0 left-0 w-full p-2 bg-red-500 text-white text-center font-semibold">
-              ⚠️ Potential theft detected!
+    <div className="min-h-screen bg-gray-900 relative overflow-hidden">
+      {/* Animated Background */}
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-5"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-blue-500/10 to-purple-500/10 animate-pulse"></div>
+      </div>
+
+      <div className="relative max-w-7xl mx-auto px-4 py-12">
+        <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
+          <div className="text-center">
+            <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text animate-gradient mb-4">
+              Stampede Monitoring System
+            </h1>
+            <p className="text-gray-400 text-lg">
+              Real-time crowd density analysis powered by AI
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-purple-500/10 rounded-2xl backdrop-blur-xl transform rotate-2 scale-105"></div>
+            <div className="relative bg-gray-800/50 p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50 shadow-xl">
+              <div className="relative w-full max-w-3xl mx-auto">
+                <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-700/50">
+                  <Webcam
+                    ref={webcamRef}
+                    audio={false}
+                    width={640}
+                    height={580}
+                    videoConstraints={videoConstraints}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                  <canvas
+                    ref={canvasRef}
+                    className="absolute inset-0 w-full h-full"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className={`text-center sm:text-left ${getStatusColor(densityStatus)}`}>
+                  <h2 className="text-2xl font-bold mb-2">Current Status</h2>
+                  <p className="text-lg">{densityStatus}</p>
+                </div>
+                {!isModelLoaded && (
+                  <div className="flex items-center space-x-2 text-blue-400">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Loading AI model...</span>
+                  </div>
+                )}
+              </div>
             </div>
-          )}
-          <div className="mt-4 p-4 bg-white shadow rounded-lg">
-            <h3 className="text-lg font-semibold text-gray-800">Detected Objects:</h3>
-            <ul className="list-disc pl-5">
-              {detections.map((detection, index) => (
-                <li key={index} className="text-gray-700">
-                  {detection.class} - Confidence: {Math.round(detection.score * 100)}%
-                </li>
-              ))}
-            </ul>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
+
+// Add these styles to your CSS/Tailwind config
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes gradient {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 8s ease infinite;
+  }
+`;
+document.head.appendChild(style);
 
 export default ObjectDetection;
