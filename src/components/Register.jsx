@@ -1,29 +1,18 @@
 import React, { useState } from "react";
-import { supabase } from "./supabase"; // Import your Supabase client
-import { useNavigate } from "react-router-dom";
+import { supabase } from "./supabase";
+import { useNavigate, Link } from "react-router-dom";
 
 const Register = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [height, setHeight] = useState("");
-  const [gender, setGender] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [role, setRole] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
-  // Universal color scheme
-  const colors = {
-    primary: "#0F172A",      // Deep Dark Background (Sidebar, Navbar)
-    secondary: "#1E293B",    // Card & Section Background
-    accent: "#3B82F6",       // Primary Accent (Buttons, Highlights, Charts)
-    accentSecondary: "#8B5CF6",
-    textPrimary: "#E2E8F0", 
-    textSecondary: "#94A3B8", 
-    border: "#334155",       
-  };
 
   const handleSignup = async (e) => {
     e.preventDefault();
@@ -51,20 +40,19 @@ const Register = () => {
 
       const user = signUpData?.user;
       if (!user) {
-        setError("User signup failed. Please try again.");
+        setError("Registration failed. Please try again.");
         setLoading(false);
         return;
       }
 
       const { error: insertError } = await supabase
-        .from("registered_trackies")
+        .from("users")
         .insert({
           user_id: user.id,
           name: name,
-          password: password,
           email: email,
-          height: parseInt(height),
-          gender: gender,
+          company_name: companyName,
+          role: role
         });
 
       if (insertError) {
@@ -76,213 +64,197 @@ const Register = () => {
       setSuccess("Account created successfully! Redirecting to login...");
       setTimeout(() => navigate("/login"), 1500);
     } catch (err) {
-      console.error("Signup failed:", err);
-      setError("An error occurred during signup.");
+      console.error("Registration failed:", err);
+      setError("An error occurred during registration.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-b from-gray-900 to-black">
-      <div className="w-full max-w-md rounded-2xl shadow-2xl p-8 relative overflow-hidden backdrop-blur-sm" 
-           style={{ backgroundColor: `${colors.secondary}95`, borderColor: colors.border, borderWidth: "1px" }}>
-        
-        {/* Gradient background overlay */}
-        <div className="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none overflow-hidden">
-          <div className="absolute w-full h-full bg-gradient-to-br from-blue-600 via-purple-500 to-blue-800"></div>
-          <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-yellow-500 blur-3xl opacity-20 -mr-32 -mt-32"></div>
-          <div className="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-blue-500 blur-3xl opacity-20 -ml-32 -mb-32"></div>
+    <div className="min-h-screen bg-gray-900 flex flex-col lg:flex-row">
+      {/* Left Panel - Branding */}
+      <div className="lg:w-1/2 relative overflow-hidden hidden lg:block">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+          <div className="absolute inset-0 bg-[url('/grid-pattern.png')] opacity-10"></div>
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 via-blue-500/20 to-purple-500/20"></div>
         </div>
-        
-        {/* Register Header */}
-        <div className="flex flex-col items-center mb-6 relative">
-          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Create Account</h1>
-          <p className="mt-2" style={{ color: colors.textSecondary }}>Join our fitness community</p>
-        </div>
-        
-        {error && (
-          <div className="bg-red-900/30 text-red-300 p-3 rounded mb-4 border border-red-800">
-            {error}
-          </div>
-        )}
-        
-        {success && (
-          <div className="bg-green-900/30 text-green-300 p-3 rounded mb-4 border border-green-800">
-            {success}
-          </div>
-        )}
-        
-        <form onSubmit={handleSignup} className="space-y-4">
-          <div>
-            <label htmlFor="name" className="block font-medium mb-2" style={{ color: colors.textPrimary }}>
-              Full Name
-            </label>
-            <input
-              type="text"
-              id="name"
-              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300"
-              style={{ 
-                backgroundColor: `${colors.primary}90`, 
-                color: colors.textPrimary,
-                borderColor: colors.border,
-                borderWidth: "1px"
-              }}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-            />
+        <div className="relative h-full flex flex-col justify-center px-12 py-24">
+          <div className="mb-12">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-400 via-blue-400 to-purple-400 text-transparent bg-clip-text mb-4">
+              EagleEye Surveillance
+            </h1>
+            <p className="text-gray-400 text-lg leading-relaxed">
+              Join the future of intelligent video surveillance. Transform your security infrastructure with AI-powered analytics and real-time monitoring.
+            </p>
           </div>
           
-          <div>
-            <label htmlFor="email" className="block font-medium mb-2" style={{ color: colors.textPrimary }}>
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300"
-              style={{ 
-                backgroundColor: `${colors.primary}90`, 
-                color: colors.textPrimary,
-                borderColor: colors.border,
-                borderWidth: "1px"
-              }}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
+          <div className="space-y-8">
+            <div className="flex items-start space-x-4">
+              <div className="p-2 bg-emerald-500/10 rounded-lg">
+                <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-white font-semibold mb-1">Enterprise-Grade Security</h3>
+                <p className="text-gray-400">Advanced encryption and secure access controls</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-4">
+              <div className="p-2 bg-blue-500/10 rounded-lg">
+                <svg className="w-6 h-6 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-white font-semibold mb-1">Real-time Analytics</h3>
+                <p className="text-gray-400">Comprehensive insights and reporting</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-4">
+              <div className="p-2 bg-purple-500/10 rounded-lg">
+                <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-white font-semibold mb-1">24/7 Monitoring</h3>
+                <p className="text-gray-400">Continuous surveillance and instant alerts</p>
+              </div>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        </div>
+      </div>
+
+      {/* Right Panel - Registration Form */}
+      <div className="lg:w-1/2 flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
+            <p className="text-gray-400">Start securing your premises today</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 rounded-lg bg-red-900/30 border border-red-800/50 text-red-300">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="mb-6 p-4 rounded-lg bg-emerald-900/30 border border-emerald-800/50 text-emerald-300">
+              {success}
+            </div>
+          )}
+
+          <form onSubmit={handleSignup} className="space-y-6">
             <div>
-              <label htmlFor="password" className="block font-medium mb-2" style={{ color: colors.textPrimary }}>
-                Password
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Full Name</label>
+              <input
+                type="text"
+                className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Enter your full name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Company Name</label>
+              <input
+                type="text"
+                className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Enter your company name"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Role</label>
+              <select
+                className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                required
+              >
+                <option value="">Select your role</option>
+                <option value="security_manager">Security Manager</option>
+                <option value="system_admin">System Administrator</option>
+                <option value="operator">Security Operator</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Email Address</label>
+              <input
+                type="email"
+                className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
               <input
                 type="password"
-                id="password"
-                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300"
-                style={{ 
-                  backgroundColor: `${colors.primary}90`, 
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                  borderWidth: "1px"
-                }}
+                className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Create a password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
               />
             </div>
-            
+
             <div>
-              <label htmlFor="confirmPassword" className="block font-medium mb-2" style={{ color: colors.textPrimary }}>
-                Confirm Password
-              </label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
               <input
                 type="password"
-                id="confirmPassword"
-                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300"
-                style={{ 
-                  backgroundColor: `${colors.primary}90`, 
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                  borderWidth: "1px"
-                }}
+                className="w-full px-4 py-3 rounded-lg bg-gray-800/50 border border-gray-700 text-white placeholder-gray-400 focus:outline-none focus:border-blue-500 transition-colors"
+                placeholder="Confirm your password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
               />
             </div>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label htmlFor="height" className="block font-medium mb-2" style={{ color: colors.textPrimary }}>
-                Height (cm)
-              </label>
-              <input
-                type="number"
-                id="height"
-                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300"
-                style={{ 
-                  backgroundColor: `${colors.primary}90`, 
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                  borderWidth: "1px"
-                }}
-                value={height}
-                onChange={(e) => setHeight(e.target.value)}
-                required
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="gender" className="block font-medium mb-2" style={{ color: colors.textPrimary }}>
-                Gender
-              </label>
-              <select
-                id="gender"
-                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 transition-all duration-300"
-                style={{ 
-                  backgroundColor: `${colors.primary}90`, 
-                  color: colors.textPrimary,
-                  borderColor: colors.border,
-                  borderWidth: "1px"
-                }}
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                required
-              >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-          
-          <button
-            type="submit"
-            className="w-full py-4 px-4 rounded-xl transition-all duration-300 flex items-center justify-center font-medium text-lg relative overflow-hidden group mt-6"
-            style={{ 
-              background: `linear-gradient(90deg, ${colors.accent}, ${colors.accentSecondary}, ${colors.accent})`,
-              backgroundSize: "200% 100%",
-              color: colors.textPrimary
-            }}
-            disabled={loading}
-          >
-            <span className="absolute w-full h-full top-0 left-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity duration-300"></span>
-            {loading ? (
-              <>
-                <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Creating Account...
-              </>
-            ) : (
-              "Create Account"
-            )}
-          </button>
-        </form>
-        
-        <div className="mt-6 text-center">
-          <p style={{ color: colors.textSecondary }}>
-            Already have an account?{" "}
-            <a 
-              href="/login" 
-              className="font-medium hover:underline transition-colors duration-300"
-              style={{ color: colors.accentSecondary }}
+
+            <button
+              type="submit"
+              className="w-full py-4 px-6 rounded-lg bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500 text-white font-medium text-lg hover:opacity-90 transition-opacity flex items-center justify-center disabled:opacity-50"
+              disabled={loading}
             >
-              Sign In
-            </a>
-          </p>
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Creating Account...
+                </>
+              ) : (
+                "Create Account"
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <p className="text-gray-400">
+              Already have an account?{" "}
+              <Link to="/login" className="text-blue-400 hover:text-blue-300 font-medium">
+                Sign In
+              </Link>
+            </p>
+          </div>
         </div>
-        
-        {/* Glass effect cards in corners for visual interest */}
-        <div className="absolute -top-16 -right-16 w-32 h-32 rounded-2xl bg-gradient-to-r from-blue-500/10 to-purple-600/10 backdrop-blur-md rotate-12 border border-white/10"></div>
-        <div className="absolute -bottom-16 -left-16 w-32 h-32 rounded-2xl bg-gradient-to-r from-purple-600/10 to-blue-500/10 backdrop-blur-md -rotate-12 border border-white/10"></div>
       </div>
     </div>
   );
