@@ -6,6 +6,7 @@ import Register from './components/Register'
 import ObjectDetection from './components/ObjectDetection'
 import WeaponDetection from './components/WeaponDetection'
 import ViolenceDetection from './components/ViolenceDetection'
+import SuspiciousActivityDetector from './components/SuspiciousActivityDetector'
 
 function App() {
 
@@ -16,8 +17,9 @@ function App() {
         <Route path='/login' element={<Login />} />
         <Route path='/register' element={<Register />} />
         <Route path='/dashboard' element={<ObjectDetection />} />
-        <Route path='/weapondetect' element={<WeaponDetection/>} />
-        <Route path='/violencedetect' element={<ViolenceDetection/>} />
+        <Route path='/weapondetect' element={<WeaponDetection />} />
+        <Route path='/violencedetect' element={<ViolenceDetection />} />
+        <Route path='/sadetect' element={<SuspiciousActivityDetector />} />
       </Routes>
     </>
   )
