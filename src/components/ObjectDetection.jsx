@@ -271,8 +271,8 @@ const App = () => {
                     <button
                       onClick={() => setIsMonitoring(prev => !prev)}
                       className={`px-6 py-3 rounded-lg font-medium transition-all duration-300 transform hover:scale-105 ${isMonitoring
-                          ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                          : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                        ? 'bg-rose-500 hover:bg-rose-600 text-white'
+                        : 'bg-emerald-500 hover:bg-emerald-600 text-white'
                         }`}
                     >
                       {isMonitoring ? 'Pause Monitoring' : 'Resume Monitoring'}

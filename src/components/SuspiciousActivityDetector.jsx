@@ -1,292 +1,424 @@
-import React, { useEffect, useRef, useState } from 'react';
-import * as tf from '@tensorflow/tfjs';
-import * as poseDetection from '@tensorflow-models/pose-detection';
-import { Activity, AlertTriangle, Brain, Zap, Shield, AlertCircle } from 'lucide-react';
+import React, { useRef, useEffect, useState } from "react";
+import * as cocoSsd from "@tensorflow-models/coco-ssd";
+import "@tensorflow/tfjs";
+import { MdOutlineWarningAmber, MdDownload, MdEmail } from "react-icons/md";
 
-const SuspiciousActivityDetection = () => {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const [loading, setLoading] = useState(true);
-  const [detector, setDetector] = useState(null);
-  const [mounted, setMounted] = useState(false);
-  const [suspiciousActivities, setSuspiciousActivities] = useState([]);
-  const [isMonitoring, setIsMonitoring] = useState(true);
+const SuspiciousActivityDetector = () => {
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const [fps, setFps] = useState(0);
+    const [detections, setDetections] = useState([]);
+    const [activityLog, setActivityLog] = useState([]);
+    const [emailSettings, setEmailSettings] = useState({
+        recipient: "",
+        frequency: "immediate", // immediate, hourly, daily
+        showEmailForm: false
+    });
+    const lastPositionsRef = useRef({});
+    const frameCounterRef = useRef(0);
+    const prevTimeRef = useRef(performance.now());
 
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
+    useEffect(() => {
+        const setupCamera = async () => {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                    videoRef.current.play();
+                }
+            } catch (error) {
+                console.error("Error accessing camera:", error);
+            }
+        };
 
-  useEffect(() => {
-    const loadModel = async () => {
-      const detectorConfig = {
-        modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-      };
-      const poseDetector = await poseDetection.createDetector(poseDetection.SupportedModels.MoveNet, detectorConfig);
-      setDetector(poseDetector);
-      setLoading(false);
+        const loadModel = async () => {
+            const model = await cocoSsd.load();
+            startDetection(model);
+        };
+
+        setupCamera();
+        loadModel();
+
+        return () => {
+            // Cleanup
+            if (videoRef.current && videoRef.current.srcObject) {
+                videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+            }
+        };
+    }, []);
+
+    // Log suspicious activities with timestamps
+    useEffect(() => {
+        const suspiciousActivities = detections.filter(d => d.color === "red");
+        if (suspiciousActivities.length > 0) {
+            const timestamp = new Date().toISOString();
+            const newLogs = suspiciousActivities.map(activity => ({
+                id: activity.id,
+                activity: activity.activity,
+                timestamp,
+                speed: activity.speed
+            }));
+
+            setActivityLog(prevLog => [...prevLog, ...newLogs]);
+
+            // Send email for immediate notifications if configured
+            if (emailSettings.recipient && emailSettings.frequency === "immediate") {
+                sendEmailNotification(suspiciousActivities);
+            }
+        }
+    }, [detections]);
+
+    const startDetection = (model) => {
+        const detectObjects = async () => {
+            if (videoRef.current && canvasRef.current) {
+                const video = videoRef.current;
+                const canvas = canvasRef.current;
+                const context = canvas.getContext("2d");
+
+                // Make sure video is playing and has dimensions
+                if (video.readyState === 4) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+
+                    // Update FPS counter
+                    frameCounterRef.current++;
+                    const currentTime = performance.now();
+                    if (currentTime - prevTimeRef.current >= 1000) {
+                        setFps(frameCounterRef.current);
+                        frameCounterRef.current = 0;
+                        prevTimeRef.current = currentTime;
+                    }
+
+                    // Clear canvas and draw video frame
+                    context.clearRect(0, 0, canvas.width, canvas.height);
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    try {
+                        const predictions = await model.detect(video);
+                        const currentDetections = [];
+                        const lastPositions = lastPositionsRef.current;
+                        const updatedPositions = {};
+
+                        predictions.forEach((prediction) => {
+                            if (prediction.class === "person" && prediction.score > 0.6) {
+                                const [x, y, width, height] = prediction.bbox;
+                                const centerX = x + width / 2;
+                                const centerY = y + height / 2;
+
+                                // Create a unique ID based on position
+                                // Using a more robust method that's less likely to create false new IDs
+                                let closestId = null;
+                                let closestDistance = Infinity;
+
+                                // Find the closest previous detection
+                                Object.keys(lastPositions).forEach(id => {
+                                    const pos = lastPositions[id];
+                                    const distance = Math.sqrt(
+                                        Math.pow(centerX - pos.x, 2) +
+                                        Math.pow(centerY - pos.y, 2)
+                                    );
+                                    if (distance < closestDistance && distance < 100) {
+                                        closestDistance = distance;
+                                        closestId = id;
+                                    }
+                                });
+
+                                // Use existing ID or create new one
+                                const id = closestId || `person-${Date.now()}-${Math.round(Math.random() * 1000)}`;
+                                let activityType = "Standing";
+                                let color = "green";
+
+                                // Analyze movement
+                                if (lastPositions[id]) {
+                                    const deltaX = centerX - lastPositions[id].x;
+                                    const deltaY = centerY - lastPositions[id].y;
+                                    const speed = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+
+                                    // Store velocity for trend analysis
+                                    const velocityHistory = lastPositions[id].velocityHistory || [];
+                                    velocityHistory.push(speed);
+                                    if (velocityHistory.length > 5) velocityHistory.shift();
+
+                                    // Calculate average recent speed
+                                    const avgSpeed = velocityHistory.reduce((sum, v) => sum + v, 0) / velocityHistory.length;
+
+                                    // Detect activities based on movement patterns
+                                    if (Math.abs(deltaY) > 40) {
+                                        activityType = "Jumping";
+                                        color = "red";
+                                    } else if (avgSpeed > 80) {
+                                        activityType = "Running";
+                                        color = "red";
+                                    } else if (avgSpeed > 40) {
+                                        activityType = "Walking";
+                                        color = "yellow";
+                                    } else if (Math.abs(deltaX) > 70 && Math.abs(deltaY) < 20) {
+                                        activityType = "Quick Exit";
+                                        color = "red";
+                                    }
+
+                                    // Store detection with activity
+                                    currentDetections.push({
+                                        id,
+                                        bbox: prediction.bbox,
+                                        activity: activityType,
+                                        color,
+                                        speed: avgSpeed.toFixed(1)
+                                    });
+
+                                    // Update position with velocity history
+                                    updatedPositions[id] = {
+                                        x: centerX,
+                                        y: centerY,
+                                        lastSeen: Date.now(),
+                                        velocityHistory
+                                    };
+                                } else {
+                                    // First detection of this person
+                                    currentDetections.push({
+                                        id,
+                                        bbox: prediction.bbox,
+                                        activity: "New Person",
+                                        color: "blue",
+                                        speed: "0.0"
+                                    });
+
+                                    // Initialize position tracking
+                                    updatedPositions[id] = {
+                                        x: centerX,
+                                        y: centerY,
+                                        lastSeen: Date.now(),
+                                        velocityHistory: [0]
+                                    };
+                                }
+                            }
+                        });
+
+                        // Clean up old detections
+                        const now = Date.now();
+                        Object.keys(lastPositions).forEach(id => {
+                            if (updatedPositions[id] || now - lastPositions[id].lastSeen > 1000) {
+                                // Keep updated positions or remove if not seen for 1 second
+                            } else {
+                                updatedPositions[id] = {
+                                    ...lastPositions[id],
+                                    lastSeen: lastPositions[id].lastSeen
+                                };
+                            }
+                        });
+
+                        // Update state
+                        lastPositionsRef.current = updatedPositions;
+                        setDetections(currentDetections);
+
+                        // Draw all detections on canvas
+                        currentDetections.forEach(detection => {
+                            const [x, y, width, height] = detection.bbox;
+
+                            // Draw bounding box
+                            context.strokeStyle = detection.color;
+                            context.lineWidth = 3;
+                            context.strokeRect(x, y, width, height);
+
+                            // Draw activity label
+                            context.fillStyle = "rgba(0, 0, 0, 0.7)";
+                            const labelHeight = 24;
+                            context.fillRect(x, y - labelHeight, width, labelHeight);
+
+                            context.font = "16px Arial";
+                            context.fillStyle = detection.color;
+                            context.fillText(
+                                `${detection.activity} (${detection.speed})`,
+                                x + 5,
+                                y - 7
+                            );
+                        });
+                    } catch (error) {
+                        console.error("Detection error:", error);
+                    }
+                }
+            }
+            requestAnimationFrame(detectObjects);
+        };
+
+        detectObjects();
     };
 
-    loadModel();
-  }, []);
+    // Generate downloadable report
+    const generateReport = () => {
+        const reportDate = new Date().toLocaleString();
+        const reportTitle = `Suspicious Activity Report - ${reportDate}`;
 
-  useEffect(() => {
-    const enableCamera = async () => {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      videoRef.current.srcObject = stream;
-      videoRef.current.play();
-    };
+        let reportContent = `# ${reportTitle}\n\n`;
+        reportContent += `## Summary\n`;
+        reportContent += `- Total events logged: ${activityLog.length}\n`;
+        reportContent += `- Report generated: ${reportDate}\n\n`;
 
-    enableCamera();
-  }, []);
+        reportContent += `## Activity Log\n\n`;
+        reportContent += `| Timestamp | Activity | Person ID | Speed |\n`;
+        reportContent += `|-----------|----------|-----------|-------|\n`;
 
-  useEffect(() => {
-    // Process each video frame for pose detection
-    const detectPoses = async () => {
-      if (!isMonitoring || !detector || !videoRef.current || videoRef.current.readyState !== 4) {
-        return;
-      }
-
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-
-      const poses = await detector.estimatePoses(video);
-
-      // Clear the canvas and draw video frame
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-      // Draw poses with modern styling
-      poses.forEach((pose) => {
-        // Draw keypoints
-        pose.keypoints.forEach((keypoint) => {
-          if (keypoint.score > 0.5) {
-            ctx.beginPath();
-            ctx.arc(keypoint.x, keypoint.y, 4, 0, 2 * Math.PI);
-            ctx.fillStyle = 'rgba(16, 185, 129, 0.8)';
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-          }
+        activityLog.forEach(log => {
+            const formattedTime = new Date(log.timestamp).toLocaleString();
+            reportContent += `| ${formattedTime} | ${log.activity} | ${log.id.substring(0, 8)}... | ${log.speed} |\n`;
         });
 
-        // Draw connections
-        pose.keypoints.forEach((keypoint, i) => {
-          if (keypoint.score > 0.5) {
-            const connections = pose.keypoints.filter((kp, j) => j > i && kp.score > 0.5);
-            connections.forEach((connection) => {
-              ctx.beginPath();
-              ctx.moveTo(keypoint.x, keypoint.y);
-              ctx.lineTo(connection.x, connection.y);
-              ctx.strokeStyle = 'rgba(16, 185, 129, 0.3)';
-              ctx.lineWidth = 2;
-              ctx.stroke();
-            });
-          }
-        });
-      });
-
-      // Add your custom suspicious activity detection logic here
-      // For example, detect unusual poses or movements
-      const suspiciousPoses = poses.filter(pose => {
-        // Add your detection logic here
-        return false;
-      });
-
-      if (suspiciousPoses.length > 0) {
-        setSuspiciousActivities(prev => [...prev, {
-          timestamp: new Date(),
-          count: suspiciousPoses.length
-        }]);
-      }
-
-      requestAnimationFrame(detectPoses);
+        // Create and download the report file
+        const blob = new Blob([reportContent], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `activity-report-${new Date().toISOString().split('T')[0]}.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
-    if (detector) {
-      detectPoses();
-    }
-  }, [detector, isMonitoring]);
+    // Send email notification (mock implementation)
+    const sendEmailNotification = (activities) => {
+        // In a real implementation, you would connect to your backend or email service
+        console.log(`Sending email notification to ${emailSettings.recipient}`);
+        console.log("Suspicious activities detected:", activities);
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.1),transparent_50%)]"></div>
-        <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(16,185,129,0.05),rgba(59,130,246,0.05),rgba(139,92,246,0.05))]"></div>
-      </div>
+        // For demonstration purposes:
+        // alert(`Email notification sent to ${emailSettings.recipient} about suspicious activities!`);
 
-      <div className="relative max-w-7xl mx-auto px-4 py-12">
-        <div className={`space-y-8 transition-all duration-1000 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'}`}>
-          {/* Header with Stats */}
-          <div className="text-center space-y-4">
-            <h1 className="text-5xl font-bold">
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500">
-                Suspicious Activity Detector
-              </span>
-            </h1>
-            <p className="text-gray-400 text-lg max-w-2xl mx-auto">
-              Real-time pose detection and suspicious activity monitoring using TensorFlow.js
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-                <Activity className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
-                <h3 className="text-2xl font-bold text-white">{suspiciousActivities.length}</h3>
-                <p className="text-gray-400">Detections</p>
-              </div>
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-                <Brain className="w-8 h-8 text-blue-500 mx-auto mb-2" />
-                <h3 className="text-2xl font-bold text-white">17</h3>
-                <p className="text-gray-400">Keypoints</p>
-              </div>
-              <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-                <Zap className="w-8 h-8 text-purple-500 mx-auto mb-2" />
-                <h3 className="text-2xl font-bold text-white">30fps</h3>
-                <p className="text-gray-400">Processing Rate</p>
-              </div>
+        // In a real implementation, you might use:
+        // fetch('/api/send-email', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify({ recipient: emailSettings.recipient, activities })
+        // });
+    };
+
+    // Toggle email settings form
+    const toggleEmailForm = () => {
+        setEmailSettings(prev => ({
+            ...prev,
+            showEmailForm: !prev.showEmailForm
+        }));
+    };
+
+    return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
+            <h1 className="text-3xl font-bold mb-4">Suspicious Activity Detection</h1>
+            <div className="relative">
+                <video ref={videoRef} className="hidden"></video>
+                <canvas ref={canvasRef} className="rounded-lg shadow-lg"></canvas>
+                <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-3 py-1 rounded-lg">
+                    FPS: {fps}
+                </div>
+
+                {/* Display summary of suspicious activities */}
+                <div className="absolute top-2 right-2 bg-black bg-opacity-70 text-white px-3 py-1 rounded-lg max-w-xs">
+                    <div className="flex items-center mb-1">
+                        <MdOutlineWarningAmber size={20} className="text-yellow-500 mr-2" />
+                        <span className="font-bold">Activity Summary</span>
+                    </div>
+                    {detections.filter(d => d.activity !== "Standing").map((d, idx) => (
+                        <div key={idx} className={`text-${d.color}-500 text-sm`}>
+                            • {d.activity} detected
+                        </div>
+                    ))}
+                    {detections.filter(d => d.activity !== "Standing").length === 0 && (
+                        <div className="text-green-500 text-sm">• No suspicious activity</div>
+                    )}
+                </div>
             </div>
-          </div>
 
-          {/* Main Content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Video Feed */}
-            <div className="lg:col-span-2">
-              <div className="relative group">
-                <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 via-blue-500/10 to-purple-500/10 rounded-2xl backdrop-blur-xl transform rotate-2 scale-105 transition-transform duration-300 group-hover:scale-110"></div>
-                <div className="relative bg-gray-800/50 p-8 rounded-2xl backdrop-blur-sm border border-gray-700/50 shadow-xl">
-                  <div className="relative aspect-video rounded-lg overflow-hidden border border-gray-700/50 group-hover:border-emerald-500/50 transition-colors duration-300">
-                    <video
-                      ref={videoRef}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                    <canvas
-                      ref={canvasRef}
-                      className="absolute inset-0 w-full h-full"
-                    />
-                  </div>
+            {/* Report and Email Controls */}
+            <div className="mt-6 flex flex-col md:flex-row gap-4">
+                <button
+                    onClick={generateReport}
+                    className="flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition-colors"
+                >
+                    <MdDownload size={20} />
+                    Download Activity Report ({activityLog.length} events)
+                </button>
 
-                  {/* Status and Controls */}
-                  <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-4 rounded-xl transition-all duration-300 ${
-                        suspiciousActivities.length > 0 
-                          ? 'bg-rose-500/10 border border-rose-500/20' 
-                          : 'bg-emerald-500/10 border border-emerald-500/20'
-                      }`}>
-                        {suspiciousActivities.length > 0 ? (
-                          <AlertTriangle className="w-8 h-8 text-rose-500" />
-                        ) : (
-                          <Shield className="w-8 h-8 text-emerald-500" />
-                        )}
-                      </div>
-                      <div>
-                        <h2 className="text-2xl font-bold text-white mb-1">Detection Status</h2>
-                        <p className={`text-lg font-medium ${
-                          suspiciousActivities.length > 0 ? 'text-rose-500' : 'text-emerald-500'
-                        }`}>
-                          {suspiciousActivities.length > 0
-                            ? `${suspiciousActivities.length} suspicious activity${suspiciousActivities.length > 1 ? 'ies' : ''} detected!`
-                            : 'No suspicious activities detected'}
-                        </p>
-                      </div>
+                <button
+                    onClick={toggleEmailForm}
+                    className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-lg transition-colors"
+                >
+                    <MdEmail size={20} />
+                    {emailSettings.showEmailForm ? "Hide Email Settings" : "Configure Email Alerts"}
+                </button>
+            </div>
+
+            {/* Email Configuration Form */}
+            {emailSettings.showEmailForm && (
+                <div className="mt-4 p-4 bg-gray-800 rounded-lg w-full max-w-md">
+                    <h3 className="text-xl font-semibold mb-3">Email Alert Settings</h3>
+                    <div className="mb-3">
+                        <label className="block text-sm font-medium mb-1">Email Address</label>
+                        <input
+                            type="email"
+                            value={emailSettings.recipient}
+                            onChange={(e) => setEmailSettings(prev => ({ ...prev, recipient: e.target.value }))}
+                            placeholder="your@email.com"
+                            className="w-full px-3 py-2 bg-gray-700 rounded text-white"
+                        />
+                    </div>
+                    <div className="mb-3">
+                        <label className="block text-sm font-medium mb-1">Alert Frequency</label>
+                        <select
+                            value={emailSettings.frequency}
+                            onChange={(e) => setEmailSettings(prev => ({ ...prev, frequency: e.target.value }))}
+                            className="w-full px-3 py-2 bg-gray-700 rounded text-white"
+                        >
+                            <option value="immediate">Immediate (on suspicious activity)</option>
+                            <option value="hourly">Hourly Summary</option>
+                            <option value="daily">Daily Summary</option>
+                        </select>
                     </div>
                     <button
-                      onClick={() => setIsMonitoring(prev => !prev)}
-                      className={`px-6 py-3 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 flex items-center ${
-                        isMonitoring
-                          ? 'bg-rose-500 hover:bg-rose-600 text-white'
-                          : 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                      }`}
+                        onClick={() => {
+                            alert(`Email alerts configured for ${emailSettings.recipient}`);
+                            setEmailSettings(prev => ({ ...prev, showEmailForm: false }));
+                        }}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition-colors"
                     >
-                      {isMonitoring ? (
-                        <>
-                          <Activity className="mr-2" />
-                          Pause Monitoring
-                        </>
-                      ) : (
-                        <>
-                          <Activity className="mr-2" />
-                          Resume Monitoring
-                        </>
-                      )}
+                        Save Email Settings
                     </button>
-                  </div>
-
-                  {/* Model Status */}
-                  {loading && (
-                    <div className="mt-6 p-4 rounded-xl bg-gray-700/50 border border-gray-600">
-                      <div className="flex items-center space-x-3">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-500"></div>
-                        <span className="text-gray-300 font-medium">Loading model, please wait...</span>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </div>
-            </div>
+            )}
 
-            {/* Sidebar */}
-            <div className="space-y-6">
-              {/* Detection Capabilities */}
-              <div className="p-6 rounded-xl bg-gray-800/30 border border-gray-700/50 backdrop-blur-sm">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                  <Activity className="w-5 h-5 text-emerald-500 mr-2" />
-                  Detection Capabilities
-                </h3>
-                <ul className="space-y-3 text-gray-400">
-                  <li className="flex items-center p-3 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <span className="w-2 h-2 bg-rose-500 rounded-full mr-3"></span>
-                    Unusual Body Movements
-                  </li>
-                  <li className="flex items-center p-3 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <span className="w-2 h-2 bg-amber-500 rounded-full mr-3"></span>
-                    Abnormal Pose Patterns
-                  </li>
-                  <li className="flex items-center p-3 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full mr-3"></span>
-                    Rapid Position Changes
-                  </li>
-                  <li className="flex items-center p-3 rounded-lg bg-gray-700/30 hover:bg-gray-700/50 transition-colors">
-                    <span className="w-2 h-2 bg-emerald-500 rounded-full mr-3"></span>
-                    Real-time Analysis
-                  </li>
-                </ul>
-              </div>
-
-              {/* Recent Detections */}
-              <div className="p-6 rounded-xl bg-gray-800/30 border border-gray-700/50 backdrop-blur-sm">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center">
-                  <AlertCircle className="w-5 h-5 text-rose-500 mr-2" />
-                  Recent Detections
-                </h3>
-                <div className="space-y-3">
-                  {suspiciousActivities.slice(-5).map((activity, index) => (
-                    <div key={index} className="p-3 rounded-lg bg-gray-700/30 border border-rose-500/20">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-300">
-                          {new Date(activity.timestamp).toLocaleTimeString()}
-                        </span>
-                        <span className="text-rose-500 font-medium">
-                          {activity.count} detection{activity.count > 1 ? 's' : ''}
-                        </span>
-                      </div>
+            {/* Activity Log Panel */}
+            {activityLog.length > 0 && (
+                <div className="mt-6 w-full max-w-3xl bg-gray-800 rounded-lg p-4">
+                    <h2 className="text-xl font-bold mb-2 flex items-center">
+                        <MdOutlineWarningAmber size={20} className="text-yellow-500 mr-2" />
+                        Activity Log ({activityLog.length} events)
+                    </h2>
+                    <div className="overflow-auto max-h-60">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-gray-700">
+                                    <th className="text-left p-2">Time</th>
+                                    <th className="text-left p-2">Activity</th>
+                                    <th className="text-left p-2">Person ID</th>
+                                    <th className="text-left p-2">Speed</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {activityLog.slice().reverse().map((log, idx) => (
+                                    <tr key={idx} className="border-b border-gray-700">
+                                        <td className="p-2">{new Date(log.timestamp).toLocaleTimeString()}</td>
+                                        <td className="p-2 text-red-500 font-medium">{log.activity}</td>
+                                        <td className="p-2">{log.id.substring(0, 8)}...</td>
+                                        <td className="p-2">{log.speed}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
-                  ))}
-                  {suspiciousActivities.length === 0 && (
-                    <p className="text-gray-400 text-center py-4">No recent detections</p>
-                  )}
                 </div>
-              </div>
-            </div>
-          </div>
+            )}
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
-export default SuspiciousActivityDetection;
+export default SuspiciousActivityDetector;
