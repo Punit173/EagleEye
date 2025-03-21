@@ -177,10 +177,10 @@ const ViolenceDetection = () => {
         reportText += `Detection: ${prediction.detected ? "ALERT - Violence Detected" : "No violence detected"}\n`;
         reportText += `Classification: ${prediction.className}\n`;
         reportText += `Confidence: ${(prediction.confidence * 100).toFixed(2)}%\n`;
-        
+
         if (prediction.detected) {
             reportText += `Category: ${prediction.category?.toLowerCase().replace('_', ' ')}\n\n`;
-            
+
             reportText += `RECOMMENDED ACTIONS:\n`;
             getRecommendedActions().forEach((action, index) => {
                 reportText += `${index + 1}. ${action.title}: ${action.description}\n`;
@@ -303,11 +303,10 @@ const ViolenceDetection = () => {
                                 <button
                                     onClick={generateReport}
                                     disabled={!prediction}
-                                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                                        !prediction
+                                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${!prediction
                                             ? "bg-gray-700 text-gray-400 cursor-not-allowed"
                                             : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                                    }`}
+                                        }`}
                                 >
                                     <FiDownload className="mr-2" />
                                     Download Report
@@ -324,10 +323,10 @@ const ViolenceDetection = () => {
                                             <FiCheck className="w-6 h-6 text-green-500 mr-3" />
                                         )}
                                         <div>
-                                            <h3 className={`font-medium ${prediction.detected ? "text-red-400" : "text-green-400"
-                                                }`}>
-                                                {prediction.className}
+                                            <h3 className={`font-medium ${prediction.detected ? "text-red-400" : "text-green-400"}`}>
+                                                {prediction.detected ? "Pushed, Pulled, Threat, Punch, Weapon" : "No Violence Detected"}
                                             </h3>
+
                                             <p className="text-sm text-gray-400 mt-1">
                                                 Confidence: {(prediction.confidence * 100).toFixed(2)}%
                                             </p>
