@@ -11,7 +11,7 @@ const SuspiciousActivityDetector = () => {
     const [activityLog, setActivityLog] = useState([]);
     const [emailSettings, setEmailSettings] = useState({
         recipient: "",
-        frequency: "immediate", // immediate, hourly, daily
+        frequency: "daily", // immediate, hourly, daily
         showEmailForm: false
     });
     const lastPositionsRef = useRef({});
@@ -284,7 +284,7 @@ const SuspiciousActivityDetector = () => {
         console.log("Suspicious activities detected:", activities);
 
         // For demonstration purposes:
-        // alert(`Email notification sent to ${emailSettings.recipient} about suspicious activities!`);
+        alert(`Email notification sent to ${emailSettings.recipient} about suspicious activities!`);
 
         // In a real implementation, you might use:
         // fetch('/api/send-email', {
