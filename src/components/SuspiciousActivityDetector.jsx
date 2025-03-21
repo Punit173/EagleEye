@@ -4,8 +4,8 @@ import "@tensorflow/tfjs";
 import { MdOutlineWarningAmber, MdDownload, MdEmail } from "react-icons/md";
 
 const SuspiciousActivityDetector = () => {
-    const videoRef = useRef(null);
-    const canvasRef = useRef(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
     const [fps, setFps] = useState(0);
     const [detections, setDetections] = useState([]);
     const [activityLog, setActivityLog] = useState([]);
@@ -18,7 +18,7 @@ const SuspiciousActivityDetector = () => {
     const frameCounterRef = useRef(0);
     const prevTimeRef = useRef(performance.now());
 
-    useEffect(() => {
+  useEffect(() => {
         const setupCamera = async () => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
@@ -33,13 +33,13 @@ const SuspiciousActivityDetector = () => {
             }
         };
 
-        const loadModel = async () => {
+    const loadModel = async () => {
             const model = await cocoSsd.load();
             startDetection(model);
         };
 
         setupCamera();
-        loadModel();
+    loadModel();
 
         return () => {
             // Cleanup
@@ -47,10 +47,10 @@ const SuspiciousActivityDetector = () => {
                 videoRef.current.srcObject.getTracks().forEach(track => track.stop());
             }
         };
-    }, []);
+  }, []);
 
     // Log suspicious activities with timestamps
-    useEffect(() => {
+  useEffect(() => {
         const suspiciousActivities = detections.filter(d => d.color === "red");
         if (suspiciousActivities.length > 0) {
             const timestamp = new Date().toISOString();
@@ -73,14 +73,14 @@ const SuspiciousActivityDetector = () => {
     const startDetection = (model) => {
         const detectObjects = async () => {
             if (videoRef.current && canvasRef.current) {
-                const video = videoRef.current;
-                const canvas = canvasRef.current;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
                 const context = canvas.getContext("2d");
 
                 // Make sure video is playing and has dimensions
                 if (video.readyState === 4) {
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
                     // Update FPS counter
                     frameCounterRef.current++;
@@ -302,10 +302,10 @@ const SuspiciousActivityDetector = () => {
         }));
     };
 
-    return (
+  return (
         <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
             <h1 className="text-3xl font-bold mb-4">Suspicious Activity Detection</h1>
-            <div className="relative">
+      <div className="relative">
                 <video ref={videoRef} className="hidden"></video>
                 <canvas ref={canvasRef} className="rounded-lg shadow-lg"></canvas>
                 <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-3 py-1 rounded-lg">
@@ -414,11 +414,11 @@ const SuspiciousActivityDetector = () => {
                                 ))}
                             </tbody>
                         </table>
-                    </div>
+      </div>
                 </div>
             )}
-        </div>
-    );
+    </div>
+  );
 };
 
 export default SuspiciousActivityDetector;

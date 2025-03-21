@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import * as tf from "@tensorflow/tfjs";
 import * as mobilenet from "@tensorflow-models/mobilenet";
 import Webcam from "react-webcam";
-import { FiVideo, FiAlertTriangle, FiCheck, FiPhone, FiMail, FiCamera, FiPause, FiPlay } from "react-icons/fi";
+import { FiVideo, FiAlertTriangle, FiCheck, FiPhone, FiMail, FiCamera, FiPause, FiPlay, FiDownload } from "react-icons/fi";
 
 const ViolenceDetection = () => {
     const [model, setModel] = useState(null);
@@ -160,6 +160,52 @@ const ViolenceDetection = () => {
         return actions.slice(1);
     };
 
+    const generateReport = () => {
+        if (!prediction) return;
+
+        const timestamp = new Date().toLocaleString();
+        const reportData = {
+            timestamp,
+            prediction,
+            detectionHistory
+        };
+
+        // Convert to formatted string for text file
+        let reportText = `VIOLENCE DETECTION REPORT\n`;
+        reportText += `Generated: ${timestamp}\n\n`;
+        reportText += `CURRENT DETECTION:\n`;
+        reportText += `Detection: ${prediction.detected ? "ALERT - Violence Detected" : "No violence detected"}\n`;
+        reportText += `Classification: ${prediction.className}\n`;
+        reportText += `Confidence: ${(prediction.confidence * 100).toFixed(2)}%\n`;
+        
+        if (prediction.detected) {
+            reportText += `Category: ${prediction.category?.toLowerCase().replace('_', ' ')}\n\n`;
+            
+            reportText += `RECOMMENDED ACTIONS:\n`;
+            getRecommendedActions().forEach((action, index) => {
+                reportText += `${index + 1}. ${action.title}: ${action.description}\n`;
+            });
+        }
+
+        if (detectionHistory.length > 0) {
+            reportText += `\nRECENT DETECTION HISTORY:\n`;
+            detectionHistory.forEach((detection, index) => {
+                reportText += `${index + 1}. ${detection.className} (${(detection.confidence * 100).toFixed(2)}% confidence)\n`;
+            });
+        }
+
+        // Create and download the file
+        const blob = new Blob([reportText], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `violence-detection-report-${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 p-6">
             <div className="max-w-6xl mx-auto">
@@ -224,33 +270,49 @@ const ViolenceDetection = () => {
                         </div>
                         <div className="mt-4 flex justify-between items-center">
                             <span className="text-sm text-gray-400">Live Feed</span>
-                            <button
-                                onClick={handlePredict}
-                                disabled={loading || isDetecting || isMonitoring}
-                                className={`flex items-center px-6 py-2.5 rounded-lg font-medium transition-all ${loading || isDetecting || isMonitoring
-                                    ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                                    }`}
-                            >
-                                {isDetecting ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                                        Detecting...
-                                    </>
-                                ) : (
-                                    <>
-                                        <FiVideo className="mr-2" />
-                                        Single Detection
-                                    </>
-                                )}
-                            </button>
+                            <div className="flex space-x-3">
+                                <button
+                                    onClick={handlePredict}
+                                    disabled={loading || isDetecting || isMonitoring}
+                                    className={`flex items-center px-6 py-2.5 rounded-lg font-medium transition-all ${loading || isDetecting || isMonitoring
+                                        ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                                        }`}
+                                >
+                                    {isDetecting ? (
+                                        <>
+                                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                                            Detecting...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <FiVideo className="mr-2" />
+                                            Single Detection
+                                        </>
+                                    )}
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <div className="space-y-8">
                         {/* Results Section */}
                         <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-                            <h2 className="text-xl font-semibold text-white mb-4">Detection Results</h2>
+                            <div className="flex justify-between items-center mb-4">
+                                <h2 className="text-xl font-semibold text-white">Detection Results</h2>
+                                <button
+                                    onClick={generateReport}
+                                    disabled={!prediction}
+                                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                        !prediction
+                                            ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                                            : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                                    }`}
+                                >
+                                    <FiDownload className="mr-2" />
+                                    Download Report
+                                </button>
+                            </div>
 
                             {prediction ? (
                                 <div className="space-y-6">
@@ -327,34 +389,6 @@ const ViolenceDetection = () => {
                                 </div>
                             </div>
                         )}
-
-                        {/* Detection History */}
-                        {/* {detectionHistory.length > 0 && (
-                            <div className="bg-gray-800/50 backdrop-blur-sm rounded-xl p-6 border border-gray-700/50">
-                                <h2 className="text-xl font-semibold text-white mb-4">Recent Detections</h2>
-                                <div className="space-y-3">
-                                    {detectionHistory.map((detection, index) => (
-                                        <div
-                                            key={index}
-                                            className="flex items-center justify-between p-3 rounded-lg bg-red-500/10"
-                                        >
-                                            <div className="flex items-center">
-                                                <FiAlertTriangle className="w-5 h-5 text-red-500 mr-3" />
-                                                <div>
-                                                    <p className="text-red-400 font-medium">{detection.className}</p>
-                                                    <p className="text-sm text-gray-400">
-                                                        {new Date(detection.timestamp).toLocaleTimeString()}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <span className="text-sm text-gray-400">
-                                                {(detection.confidence * 100).toFixed(2)}% confidence
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )} */}
 
                         {prediction?.detected && (
                             <div className="text-sm text-gray-400 mt-2">

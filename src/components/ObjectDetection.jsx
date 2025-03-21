@@ -14,8 +14,8 @@ const App = () => {
   const [reportType, setReportType] = useState("all");
   const [mounted, setMounted] = useState(false);
 
-  const lowDensityThreshold = 10;
-  const highDensityThreshold = 30;
+  const lowDensityThreshold = 1;
+  const highDensityThreshold = 3;
 
   useEffect(() => {
     setMounted(true);
@@ -172,7 +172,7 @@ const App = () => {
             });
 
             let status = "Low Density";
-            if (personCount >= lowDensityThreshold && personCount < highDensityThreshold) {
+            if (personCount > lowDensityThreshold && personCount < highDensityThreshold) {
               status = "Medium Density";
             } else if (personCount >= highDensityThreshold) {
               status = "High Density - ALERT!";
