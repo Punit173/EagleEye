@@ -20,7 +20,7 @@ function App() {
         <Route path='/dashboard' element={<Dashboard />} />
         <Route path='/objdetect' element={<ObjectDetection />} />
         <Route path='/weapondetect' element={<WeaponDetection />} />
-        <Route path='/violencedetect' element={<ViolenceDetection />} />
+        <Route path='/violence' element={<ViolenceDetection />} />
         <Route path='/sadetect' element={<SuspiciousActivityDetector />} />
       </Routes>
     </>
